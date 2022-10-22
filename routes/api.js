@@ -77,6 +77,31 @@ router.post('/product/', authenticateToken, async (req, res, next) => {
   }
 })
 
+router.post('/bidedproduct/', authenticateToken,  (req, res, next) => {
+  Bids.find({biderId: req.body.userId})
+  .then((data) => {
+      console.log(data);
+      let bidsWithoutDup = [];
+      let isInclude = false
+        data.forEach((element) => {
+          bidsWithoutDup.length === 0 && bidsWithoutDup.push(element);
+          if (bidsWithoutDup.length > 0) {
+            bidsWithoutDup.forEach(newElement => {
+              if (newElement.productId.includes(element.productId)) {
+                isInclude = true
+                console.log(element);
+                console.log(newElement);
+              }
+            });
+            !isInclude && bidsWithoutDup.push(element)  
+            isInclude = false
+          }
+        })
+        res.json(bidsWithoutDup);
+    })
+})
+
+
 router.patch('/product/:id', authenticateToken, async (req, res) => {
   const product = await Product.findOne({ _id: req.params.id })
   const user = await Users.findOne({ _id: req.body.biderId })
@@ -256,6 +281,14 @@ router.patch('/product/:id', authenticateToken, async (req, res) => {
 router.delete('/product/:id', authenticateToken, (req, res, next) => {
   Product.findOneAndDelete({ _id: req.params.id })
     .then(async (data) => {
+      Bids.find({productId: req.params.id})
+        .then(bids => {
+          console.log(bids);
+          bids.forEach(bid => {
+            Bids.findOneAndDelete({ _id: bid._id })
+            .then(res => console.log(res))
+          })
+        })
       await cloudinary.uploader.destroy(data.image.public_id, { resource_type: "image" })
       .then(result => console.log(result))
       .catch(next)
@@ -417,11 +450,16 @@ router.post('/checkEndOfAuction/', authenticateToken,  (req, res, next) => {
     .catch(next)
 })
 
-// router.delete('/bids/:id', (req, res, next) => {
-//   Bids.findOneAndDelete({ _id: req.params.id })
-//     .then((data) => res.json(data))
-//     .catch(next)
-// })
+router.delete('/bids/:id', (req, res, next) => {
+  Bids.find({productId: req.params.id})
+  .then(bids => {
+    bids.forEach(bid => {
+      Bids.findOneAndDelete({ _id: bid._id })
+      .then(res => console.log(res))
+    })
+  })
+  .catch(next)
+})
 
 router.post('/register', UsersPostValidation, async function (req, res, next) {
   const { email, firstName, lastName, avatar, phone } = req.body
